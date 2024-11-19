@@ -162,25 +162,16 @@ const markOrderAsPaid = async (req, res) => {
     const order = await Order.findById(req.params.id);
 
     if (order) {
-      // If the payment method is COD, mark the order as paid only when it is delivered
       if (order.paymentMethod === "Cash on Delivery") {
         if (!order.isDelivered) {
-          res.status(400).json({ message: "Order must be delivered before marking as paid for COD" });
+          res
+            .status(400)
+            .json({ message: "COD order must be delivered before marking as paid" });
           return;
         }
-        order.isPaid = true;
-        order.paidAt = Date.now();
-      } else {
-        // For other payment methods (PayPal, credit card, etc.), mark the order as paid immediately
-        order.isPaid = true;
-        order.paidAt = Date.now();
-        order.paymentResult = {
-          id: req.body.id,
-          status: req.body.status,
-          update_time: req.body.update_time,
-          email_address: req.body.payer.email_address,
-        };
       }
+      order.isPaid = true;
+      order.paidAt = Date.now();
 
       const updatedOrder = await order.save();
       res.status(200).json(updatedOrder);
@@ -193,27 +184,14 @@ const markOrderAsPaid = async (req, res) => {
   }
 };
 
-
 const markOrderAsDelivered = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
     if (order) {
       order.isDelivered = true;
+      order.isPaid=true;
       order.deliveredAt = Date.now();
-
-      // Check if the payment method is COD and mark as paid
-      if (order.paymentMethod === "COD" && !order.isPaid) {
-        order.isPaid = true;
-        order.paidAt = Date.now();
-        order.paymentResult = {
-          id: req.params.id,
-          status: "COD payment confirmed",
-          update_time: Date.now(),
-          email_address: order.user.email,
-        };
-      }
-
       const updatedOrder = await order.save();
       res.json(updatedOrder);
     } else {

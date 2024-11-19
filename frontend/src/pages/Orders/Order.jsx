@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { PayPalButtons, usePayPalScriptReducer } from "@paypal/react-paypal-js";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import Messsage from "../../components/Message";
@@ -8,7 +7,6 @@ import Loader from "../../components/Loader";
 import {
   useDeliverOrderMutation,
   useGetOrderDetailsQuery,
-  useGetPaypalClientIdQuery,
   usePayOrderMutation,
 } from "../../redux/api/orderApiSlice";
 
@@ -27,63 +25,8 @@ const Order = () => {
     useDeliverOrderMutation();
   const { userInfo } = useSelector((state) => state.auth);
 
-  const [{ isPending }, paypalDispatch] = usePayPalScriptReducer();
-
-  const {
-    data: paypal,
-    isLoading: loadingPaPal,
-    error: errorPayPal,
-  } = useGetPaypalClientIdQuery();
-
-  useEffect(() => {
-    if (!errorPayPal && !loadingPaPal && paypal.clientId) {
-      const loadingPaPalScript = async () => {
-        paypalDispatch({
-          type: "resetOptions",
-          value: {
-            "client-id": paypal.clientId,
-            currency: "USD",
-          },
-        });
-        paypalDispatch({ type: "setLoadingStatus", value: "pending" });
-      };
-
-      if (order && !order.isPaid && order.paymentMethod !== "COD") {
-        if (!window.paypal) {
-          loadingPaPalScript();
-        }
-      }
-    }
-  }, [errorPayPal, loadingPaPal, order, paypal, paypalDispatch]);
-
-  function onApprove(data, actions) {
-    return actions.order.capture().then(async function (details) {
-      try {
-        await payOrder({ orderId, details });
-        refetch();
-        toast.success("Order is paid");
-      } catch (error) {
-        toast.error(error?.data?.message || error.message);
-      }
-    });
-  }
-
-  function createOrder(data, actions) {
-    return actions.order
-      .create({
-        purchase_units: [{ amount: { value: order.totalPrice } }],
-      })
-      .then((orderID) => {
-        return orderID;
-      });
-  }
-
-  function onError(err) {
-    toast.error(err.message);
-  }
-
   const deliverHandler = async () => {
-    if (order.paymentMethod === "COD") {
+    if (order.paymentMethod === "Cash on Delivery") {
       try {
         await payOrder({ orderId, details: { status: "COD payment confirmed" } });
         toast.success("COD order marked as paid.");
@@ -175,14 +118,12 @@ const Order = () => {
           </p>
 
           {order.isPaid ? (
-  <Messsage variant="success">
-    Paid on {order.paymentMethod === "Cash on Delivery" ? "Delivery" : order.paidAt}
-  </Messsage>
-) : order.paymentMethod === "COD" ? (
-  <Messsage variant="success">COD - Payment will be collected upon delivery</Messsage>
-) : (
-  <Messsage variant="danger">Not paid</Messsage>
-)}
+            <Messsage variant="success">
+              Paid at Delivery on {order.deliveredAt} 
+            </Messsage>
+          ) : (
+            <Messsage variant="danger">Not paid</Messsage>
+          )}
         </div>
 
         <h2 className="text-xl font-bold mb-2 mt-[3rem]">Order Summary</h2>
@@ -207,27 +148,8 @@ const Order = () => {
           <Messsage variant="info">COD payment to be made upon delivery.</Messsage>
         )}
 
-        {!order.isPaid && order.paymentMethod !== "COD" && (
-          <div>
-            {loadingPay && <Loader />}{" "}
-            {isPending ? (
-              <Loader />
-            ) : (
-              <div>
-                <div>
-                  <PayPalButtons
-                    createOrder={createOrder}
-                    onApprove={onApprove}
-                    onError={onError}
-                  ></PayPalButtons>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {loadingDeliver && <Loader />}
-        {userInfo && userInfo.isAdmin && order.isPaid && !order.isDelivered && (
+        {userInfo && userInfo.isAdmin && !order.isDelivered && (
           <div>
             <button
               type="button"

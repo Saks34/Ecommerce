@@ -126,18 +126,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="ml-[10rem] mt-[4rem]">
-          <Chart
-            options={state.options}
-            series={state.series}
-            type="bar"
-            width="70%"
-          />
-        </div>
-
-        <div className="mt-[4rem]">
-          <OrderList />
-        </div>
+        
       </section>
     </>
   );
